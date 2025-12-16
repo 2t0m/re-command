@@ -877,6 +877,11 @@
                     <button id="listenBrainzToggle" class="playlist-toggle" onclick="togglePlaylist('listenBrainz')" style="display: none;">▼</button>
                 </div>
             </div>
+            <div id="listenBrainzTopButtons" class="playlist-controls">
+                <button onclick="downloadListenBrainzTopAll()">Download Top All Playlist</button>
+                <button onclick="downloadListenBrainzTopMonth()">Download Top Month Playlist</button>
+                <button onclick="downloadListenBrainzTopWeek()">Download Top Week Playlist</button>
+            </div>
             <div id="listenBrainzButtons" class="playlist-controls">
                 <button onclick="discoverListenBrainzPlaylist()">Discover Weekly Playlist</button>
                 <button onclick="downloadListenBrainzPlaylistDirect()">Download Weekly Playlist</button>
@@ -1106,6 +1111,24 @@
                                 <input type="checkbox" id="albumRecommendationEnabled">
                                 Download fresh releases as recommendations
                                 <span class="help-icon" title="When enabled, albums downloaded from fresh releases will be tagged with 'album_recommendation' and songs rated ≤3 stars will be removed during cleanup">ℹ️</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="listenbrainzTopAllTimeEnabled">
+                                Download Top All Time ListenBrainz
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="listenbrainzTopMonthEnabled">
+                                Download Top Month ListenBrainz
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="listenbrainzTopWeekEnabled">
+                                Download Top Week ListenBrainz
                             </label>
                         </div>
 
@@ -1399,7 +1422,7 @@
                                     </svg>
                                 </button>
                                 <button class="feedback-btn download-btn" onclick="downloadIndividualTrack('${song.artist.replace(/'/g, "\\'")}', '${song.title.replace(/'/g, "\\'")}', this, false, 'LLM')" title="Download track">
-                                    <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon"><path d="M17 17H17.01M17.4 14H18C18.9319 14 19.3978 14 19.7654 14.1522C20.2554 14.3552 20.6448 14.7446 20.8478 15.2346C21 15.6022 21 16.0681 21 17C21 17.9319 21 18.3978 20.8478 18.7654C20.6448 19.2554 20.2554 19.6448 19.7654 19.8478C19.3978 20 18.9319 20 18 20H6C5.06812 20 4.60218 20 4.23463 19.8478C3.74458 19.6448 3.35523 19.2554 3.15224 18.7654C3 18.3978 3 17.9319 3 17C3 16.0681 3 15.6022 3.15224 15.2346C3.35523 14.7446 3.74458 14.3552 4.23463 14.1522C4.60218 14 5.06812 14 6 14H6.6M12 15V4M12 15L9 12M12 15L15 12" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon"><path d="M17 17H17.01M17.4 14H18C18.9319 14 19.3978 14 19.7654 14.1522C20.2554 14.3552 20.6448 14.7446 20.8478 15.2346C21 15.6022 21 16.0681 21 17C21 17.9319 21 18.3978 20.8478 18.7654C20.6448 19.2554 20.2554 19.6448 19.7654 19.8478C19.3978 20 18.9319 20 18 20H6C5.06812 20 4.60218 20 4.23463 19.8478C3.74458 19.6448 3.35523 19.2554 3.15224 18.7654C3 18.3978 3 17.9319 3 17C3 16.0681 3 15.6022 3.15224 15.2346C3.35523 14.7446 3.74458 14.3552 4.23463 14.1522C4.60218 14 5.06812 14 6 14H6.6M12 15V4M12 15L9 12M12 15L15 12" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </button>
                                 <button class="feedback-btn like-btn" onclick="submitListenBrainzFeedback(this, '${song.recording_mbid || 'null'}', 1)" title="Like this track on ListenBrainz">
                                     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon">
@@ -1506,7 +1529,7 @@
                                 </button>
                                 <button class="feedback-btn download-btn" onclick="downloadIndividualTrack('${song.artist.replace(/'/g, "\\'")}', '${song.title.replace(/'/g, "\\'")}', this, true, 'ListenBrainz')" title="Download track">
                                     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon">
-                                        <path d="M17 17H17.01M17.4 14H18C18.9319 14 19.3978 14 19.7654 14.1522C20.2554 14.3552 20.6448 14.7446 20.8478 15.2346C21 15.6022 21 16.0681 21 17C21 17.9319 21 18.3978 20.8478 18.7654C20.6448 19.2554 20.2554 19.6448 19.7654 19.8478C19.3978 20 18.9319 20 18 20H6C5.06812 20 4.60218 20 4.23463 19.8478C3.74458 19.6448 3.35523 19.2554 3.15224 18.7654C3 18.3978 3 17.9319 3 17C3 16.0681 3 15.6022 3.15224 15.2346C3.35523 14.7446 3.74458 14.3552 4.23463 14.1522C4.60218 14 5.06812 14 6 14H6.6M12 15V4M12 15L9 12M12 15L15 12" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>                                    </svg>
+                                        <path d="M17 17H17.01M17.4 14H18C18.9319 14 19.3978 14 19.7654 14.1522C20.2554 14.3552 20.6448 14.7446 20.8478 15.2346C21 15.6022 21 16.0681 21 17C21 17.9319 21 18.3978 20.8478 18.7654C20.6448 19.2554 20.2554 19.6448 19.7654 19.8478C19.3978 20 18.9319 20 18 20H6C5.06812 20 4.60218 20 4.23463 19.8478C3.74458 19.6448 3.35523 19.2554 3.15224 18.7654C3 18.3978 3 17.9319 3 17C3 16.0681 3 15.6022 3.15224 15.2346C3.35523 14.7446 3.74458 14.3552 4.23463 14.1522C4.60218 14 5.06812 14 6 14H6.6M12 15V4M12 15L9 12M12 15L15 12" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </button>
                                 <button class="feedback-btn like-btn" onclick="submitListenBrainzFeedback(this, '${recordingMbid}', 1)" title="Like this track">
                                     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon">
@@ -1522,7 +1545,9 @@
                         </div>`;
                     }).join('');
                     if (isDiscover) {
-                        document.getElementById('listenBrainzButtons').innerHTML = '<button class="download-btn" id="listenBrainzDownloadBtn" onclick="downloadListenBrainzPlaylist()">Download all</button><button onclick="refetchListenBrainzPlaylist()">Refetch</button>';
+                        document.getElementById('listenBrainzButtons').innerHTML = `
+                            <button onclick="refetchListenBrainzPlaylist()">Refetch</button>
+                        `;
                     }
                     // Setup intersection observer for lazy loading album art
                     statusDiv.textContent = `${data.recommendations.length} songs fetched from ListenBrainz`;
@@ -1544,6 +1569,30 @@
 
         async function downloadListenBrainzPlaylistDirect() {
             const response = await fetch('/api/trigger_listenbrainz_download', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            showMessage(data.status, data.message);
+        }
+
+        async function downloadListenBrainzTopWeek() {
+            const response = await fetch(`/api/trigger_listenbrainz_top_playlist_download?range=week`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            showMessage(data.status, data.message);
+        }
+
+        async function downloadListenBrainzTopMonth() {
+            const response = await fetch(`/api/trigger_listenbrainz_top_playlist_download?range=month`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            showMessage(data.status, data.message);
+        }
+
+        async function downloadListenBrainzTopAll() {
+            const response = await fetch(`/api/trigger_listenbrainz_top_playlist_download?range=alltime`, {
                 method: 'POST'
             });
             const data = await response.json();
@@ -1616,7 +1665,7 @@
                                 </button>
                                 <button class="feedback-btn download-btn" onclick="downloadIndividualTrack('${song.artist.replace(/'/g, "\\'")}', '${song.title.replace(/'/g, "\\'")}', this, false, 'Last.fm')" title="Download track">
                                     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon">
-                                        <path d="M17 17H17.01M17.4 14H18C18.9319 14 19.3978 14 19.7654 14.1522C20.2554 14.3552 20.6448 14.7446 20.8478 15.2346C21 15.6022 21 16.0681 21 17C21 17.9319 21 18.3978 20.8478 19.8478C20.6448 19.2554 20.2554 19.6448 19.7654 19.8478C19.3978 20 18.9319 20 18 20H6C5.06812 20 4.60218 20 4.23463 19.8478C3.74458 19.6448 3.35523 19.2554 3.15224 19.2346C3 18.6022 3 18.0681 3 17C3 16.0681 3 15.6022 3.15224 15.2346C3.35523 14.7446 3.74458 14.3552 4.23463 14.1522C4.60218 14 5.06812 14 6 14H6.6M12 15V4M12 15L9 12M12 15L15 12" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>                                    </svg>
+                                        <path d="M17 17H17.01M17.4 14H18C18.9319 14 19.3978 14 19.7654 14.1522C20.2554 14.3552 20.6448 14.7446 20.8478 15.2346C21 15.6022 21 16.0681 21 17C21 17.9319 21 18.3978 20.8478 18.7654C20.6448 19.2554 20.2554 19.6448 19.7654 19.8478C19.3978 20 18.9319 20 18 20H6C5.06812 20 4.60218 20 4.23463 19.8478C3.74458 19.6448 3.35523 19.2554 3.15224 18.7654C3 18.3978 3 17.9319 3 17C3 16.0681 3 15.6022 3.15224 15.2346C3.35523 14.7446 3.74458 14.3552 4.23463 14.1522C4.60218 14 5.06812 14 6 14H6.6M12 15V4M12 15L9 12M12 15L15 12" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </button>
                                 <button class="feedback-btn like-btn" onclick="submitLastFmFeedback(this, '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}')" title="Love this track">
                                     <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="feedback-icon">
@@ -1626,10 +1675,10 @@
                             </div>
                         </div>`;
                     }).join('');
-                    // No need to call loadAlbumArt for each song, as it's pre-populated in the backend
                     if (isDiscover) {
                         document.getElementById('lastFmButtons').innerHTML = '<button class="download-btn" id="lastFmDownloadBtn" onclick="downloadLastFmPlaylist()">Download all</button><button onclick="refetchLastFmPlaylist()">Refetch</button>';
                     }
+                    // No need to call loadAlbumArt for each song, as it's pre-populated in the backend
                     statusDiv.textContent = `${data.recommendations.length} songs fetched from Last.fm`;
                     toggleBtn.style.display = 'inline-block';
                     showMessage('info', `Found ${data.recommendations.length} Last.fm recommendations.`);
@@ -2046,6 +2095,9 @@
             document.getElementById('navidromeUser').value = config.USER_ND !== null ? config.USER_ND : '';
             document.getElementById('navidromePassword').value = config.PASSWORD_ND !== null ? config.PASSWORD_ND : '';
             document.getElementById('listenbrainzEnabled').checked = config.LISTENBRAINZ_ENABLED || false;
+            document.getElementById('listenbrainzTopAllTimeEnabled').checked = config.LISTENBRAINZ_TOP_ALLTIME_ENABLED || false;
+            document.getElementById('listenbrainzTopMonthEnabled').checked = config.LISTENBRAINZ_TOP_MONTH_ENABLED || false;
+            document.getElementById('listenbrainzTopWeekEnabled').checked = config.LISTENBRAINZ_TOP_WEEK_ENABLED || false;
             document.getElementById('listenbrainzToken').value = config.TOKEN_LB !== null ? config.TOKEN_LB : '';
             document.getElementById('listenbrainzUser').value = config.USER_LB !== null ? config.USER_LB : '';
             document.getElementById('lastfmEnabled').checked = config.LASTFM_ENABLED || false;
@@ -2200,6 +2252,9 @@
             const day = document.getElementById('cronDay').value;
             const disabled = document.getElementById('disableCron').checked;
             const albumRecommendationEnabled = document.getElementById('albumRecommendationEnabled').checked;
+            const topAllTimeEnabled = document.getElementById('listenbrainzTopAllTimeEnabled').checked;
+            const topMonthEnabled = document.getElementById('listenbrainzTopMonthEnabled').checked;
+            const topWeekEnabled = document.getElementById('listenbrainzTopWeekEnabled').checked;
 
             // Build cron schedule: "0 HOUR * * DAY" (runs at specified hour on specified day every week)
             const schedule = `0 ${hour} * * ${day}`;
@@ -2225,7 +2280,7 @@
                 const configResponse = await fetch('/api/update_config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ALBUM_RECOMMENDATION_ENABLED: albumRecommendationEnabled })
+                    body: JSON.stringify({ ALBUM_RECOMMENDATION_ENABLED: albumRecommendationEnabled, LISTENBRAINZ_TOP_MONTH_ENABLED: topMonthEnabled, LISTENBRAINZ_TOP_WEEK_ENABLED: topWeekEnabled })
                 });
                 const configData = await configResponse.json();
 

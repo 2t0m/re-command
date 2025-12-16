@@ -42,7 +42,10 @@ async def process_navidrome_cleanup():
         password_nd=PASSWORD_ND,
         music_library_path=MUSIC_LIBRARY_PATH,
         target_comment=TARGET_COMMENT,
-        lastfm_target_comment=LASTFM_TARGET_COMMENT
+        lastfm_target_comment=LASTFM_TARGET_COMMENT,
+        top_target_comment_alltime=TOP_TARGET_COMMENT_ALLTIME,
+        top_target_comment_month=TOP_TARGET_COMMENT_MONTH,
+        top_target_comment_week=TOP_TARGET_COMMENT_WEEK
     )
     
     await navidrome_api.process_navidrome_library(
@@ -86,16 +89,46 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
         password_nd=PASSWORD_ND,
         music_library_path=MUSIC_LIBRARY_PATH,
         target_comment=TARGET_COMMENT,
-        lastfm_target_comment=LASTFM_TARGET_COMMENT,
-        album_recommendation_comment=ALBUM_RECOMMENDATION_COMMENT,
-        listenbrainz_enabled=LISTENBRAINZ_ENABLED,
-        lastfm_enabled=LASTFM_ENABLED,
-        llm_target_comment=LLM_TARGET_COMMENT,
-        llm_enabled=LLM_ENABLED
+        lastfm_target_comment=LASTFM_TARGET_COMMENT
     )
     track_downloader = TrackDownloader(tagger)
 
     all_recommendations = []
+
+    if source in ["all", "lb_top_week"] and LISTENBRAINZ_TOP_WEEK_ENABLED:
+        print("\033[1;34m=== LISTENBRAINZ TOP WEEK ===\033[0m")
+        print("\nFetching ListenBrainz Top Week Playlist...")
+        lb_top_tracks = await listenbrainz_api.get_top_playlist(range="week")
+        print(f"Found {len(lb_top_tracks)} new ListenBrainz recommendations.")
+        for song in lb_top_tracks:
+            print(f"  - {song['artist']} - {song['title']} ({song['album']})")
+        all_recommendations.extend(lb_top_tracks)
+    elif source == "lb_top_week":
+        print("ListenBrainz Top Week is not enabled. Skipping recommendations.")
+
+    if source in ["all", "lb_top_month"] and LISTENBRAINZ_TOP_MONTH_ENABLED:
+        print("\033[1;34m=== LISTENBRAINZ TOP MONTH ===\033[0m")
+        print("\nFetching ListenBrainz Top Month Playlist...")
+        lb_top_tracks = await listenbrainz_api.get_top_playlist(range="month")
+        if lb_top_tracks:
+            print(f"Found {len(lb_top_tracks)} top tracks.")
+            for i, song in enumerate(lb_top_tracks):
+                print(f"  {i+1:02d}. {song.get('artist', song.get('artist_name', ''))} - {song.get('title', song.get('track_name', ''))}")
+            all_recommendations.extend(lb_top_tracks)
+        else:
+            print("No top tracks found for month.")
+    
+    if source in ["all", "lb_top_alltime"] and LISTENBRAINZ_TOP_ALLTIME_ENABLED:
+        print("\033[1;34m=== LISTENBRAINZ TOP ALL TIME ===\033[0m")
+        print("\nFetching ListenBrainz Top All Time Playlist...")
+        lb_top_tracks = await listenbrainz_api.get_top_playlist(range="all_time")
+        if lb_top_tracks:
+            print(f"Found {len(lb_top_tracks)} top tracks.")
+            for i, song in enumerate(lb_top_tracks):
+                print(f"  {i+1:02d}. {song.get('artist', song.get('artist_name', ''))} - {song.get('title', song.get('track_name', ''))}")
+            all_recommendations.extend(lb_top_tracks)
+        else:
+            print("No top tracks found for all time.")
 
     if source in ["all", "listenbrainz"] and LISTENBRAINZ_ENABLED:
         print("\033[1;34m=== LISTENBRAINZ RECOMMENDATIONS ===\033[0m")
@@ -175,8 +208,16 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
     unique_recommendations = []
     seen_tracks = set()
     for rec in all_recommendations:
-        track_identifier = (rec['artist'], rec['title'])
+        artist = rec.get('artist') or rec.get('artist_name')
+        title = rec.get('title') or rec.get('track_name')
+        if not artist or not title:
+            print(f"Skipping invalid recommendation (missing artist/title): {rec}")
+            continue
+        track_identifier = (artist, title)
         if track_identifier not in seen_tracks:
+            # Optionally, set the normalized keys for downstream code
+            rec['artist'] = artist
+            rec['title'] = title
             unique_recommendations.append(rec)
             seen_tracks.add(track_identifier)
 
@@ -193,7 +234,8 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
                 try:
                     # Determine if this is a ListenBrainz recommendation
                     lb_recommendation = song_info.get('source', '').lower() == 'listenbrainz'
-                    downloaded_file_path = await track_downloader.download_track(song_info, lb_recommendation=lb_recommendation)
+                    position = song_info.get('position') or None
+                    downloaded_file_path = await track_downloader.download_track(song_info, lb_recommendation=lb_recommendation, position=position)
                     if downloaded_file_path:
                         downloaded_songs_info.append(song_info)
                         # Update progress
@@ -245,10 +287,7 @@ async def process_fresh_releases_albums(download_id=None):
         password_nd=PASSWORD_ND,
         music_library_path=MUSIC_LIBRARY_PATH,
         target_comment=TARGET_COMMENT,
-        lastfm_target_comment=LASTFM_TARGET_COMMENT,
-        album_recommendation_comment=ALBUM_RECOMMENDATION_COMMENT,
-        listenbrainz_enabled=LISTENBRAINZ_ENABLED,
-        lastfm_enabled=LASTFM_ENABLED
+        lastfm_target_comment=LASTFM_TARGET_COMMENT
     )
     album_downloader = AlbumDownloader(tagger)
 
@@ -328,8 +367,8 @@ if __name__ == "__main__":
         "--source",
         type=str,
         default="all",
-        choices=["all", "listenbrainz", "lastfm", "llm", "fresh_releases"],
-        help="Specify the source for recommendations (all, listenbrainz, lastfm, llm) or 'fresh_releases' to download albums from fresh releases."
+        choices=["all", "listenbrainz", "lastfm", "llm", "fresh_releases", "lb_top_week", "lb_top_month", "lb_top_alltime"],
+        help="Specify the source for recommendations (all, listenbrainz, lastfm, llm, lb_top_week, lb_top_month, lb_top_alltime) or 'fresh_releases' to download albums from fresh releases."
     )
     parser.add_argument(
         "--bypass-playlist-check",

@@ -48,6 +48,16 @@ LASTFM_TARGET_COMMENT = "lastfm_recommendation"
 ALBUM_RECOMMENDATION_COMMENT = "album_recommendation"
 LLM_TARGET_COMMENT = 'llm_recommendation'
 
+# Top Playlist Tags for different ranges (exposed from env, fallback default)
+TOP_TARGET_COMMENT_ALLTIME = os.getenv('RECOMMAND_TOP_TARGET_COMMENT_ALLTIME', 'recommand_top_playlist_alltime')
+TOP_TARGET_COMMENT_MONTH = os.getenv('RECOMMAND_TOP_TARGET_COMMENT_MONTH', 'recommand_top_playlist_month')
+TOP_TARGET_COMMENT_WEEK = os.getenv('RECOMMAND_TOP_TARGET_COMMENT_WEEK', 'recommand_top_playlist_week')
+
+# Enable/disable ListenBrainz Top All Time automation
+LISTENBRAINZ_TOP_ALLTIME_ENABLED = os.getenv('LISTENBRAINZ_TOP_ALLTIME_ENABLED', 'false').lower() == 'true'
+LISTENBRAINZ_TOP_MONTH_ENABLED = os.getenv('LISTENBRAINZ_TOP_MONTH_ENABLED', 'false').lower() == 'true'
+LISTENBRAINZ_TOP_WEEK_ENABLED = os.getenv('LISTENBRAINZ_TOP_WEEK_ENABLED', 'false').lower() == 'true'
+
 # History Tracking
 PLAYLIST_HISTORY_FILE = "playlist_history.txt"
 
@@ -55,4 +65,4 @@ PLAYLIST_HISTORY_FILE = "playlist_history.txt"
 FRESH_RELEASES_CACHE_DURATION = 300
 
 # Deezer API Rate Limiting
-DEEZER_MAX_CONCURRENT_REQUESTS = 3 
+DEEZER_MAX_CONCURRENT_REQUESTS = 3

@@ -1,0 +1,64 @@
+services:
+  re-command:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: re-command-container
+    image: re-command-app
+    ports:
+      - "5005:5000"
+    volumes:
+      - /mnt/usbhdd/music:/app/music
+      - /mnt/usbhdd/music/.tempfolder:/app/temp_downloads
+    environment:
+      # Navidrome Configuration
+      - RECOMMAND_ROOT_ND=http://192.168.1.155:4533
+      - RECOMMAND_USER_ND=thomas
+      - RECOMMAND_PASSWORD_ND=!!!uv7zddt!!!
+
+      # ListenBrainz Configuration
+      - RECOMMAND_LISTENBRAINZ_ENABLED=True
+      - RECOMMAND_TOKEN_LB=883c1e61-c818-4e8b-9b2d-c0fed8c064a7
+      - RECOMMAND_USER_LB=t0m_t0m_t0m
+
+      # Last.fm Configuration
+      - RECOMMAND_LASTFM_ENABLED=True
+      - RECOMMAND_LASTFM_API_KEY=512ac6ca81434797ffe909ef4599c69c
+      - RECOMMAND_LASTFM_API_SECRET=855643f94b8ca6e399e59b1bfbf971cf
+      - RECOMMAND_LASTFM_USERNAME=t0m_t0m_t0m
+      - RECOMMAND_LASTFM_SESSION_KEY=mJvtJy20pG6k8LxnVpE01mLFGJK1fLzZ
+
+      # LLM Configuration
+      - RECOMMAND_LLM_ENABLED=True
+      - RECOMMAND_LLM_PROVIDER=gemini
+      - RECOMMAND_LLM_API_KEY=AIzaSyAecBeEUacYHWAr96NoeMZP43xbxcDWMNs
+      - RECOMMAND_LLM_MODEL_NAME=
+
+      # Top Playlist Configuration
+      - RECOMMAND_LISTENBRAINZ_TOP_ALLTIME_ENABLED=True
+      - RECOMMAND_LISTENBRAINZ_TOP_MONTH_ENABLED=True
+      - RECOMMAND_LISTENBRAINZ_TOP_WEEK_ENABLED=True
+
+      # Deezer Configuration
+      - RECOMMAND_DEEZER_ARL=1ad8d7b89a947b7496983cbea59ded935d1c52a9a6ae0e3df7d274c8d2319e50d4021bda0841377a7629e80096c754a69492b0bc664eb2659cf9d0a22db84230ae2e80c73b0ff516f4ef489f180c8f486b995425af7258dd132e7a62cd0cc2a4
+
+      # Download Method
+      - RECOMMAND_DOWNLOAD_METHOD=streamrip
+
+      # Comment Tags
+      - RECOMMAND_TARGET_COMMENT=lb_recommendation
+      - RECOMMAND_LASTFM_TARGET_COMMENT=lastfm_recommendation
+      - RECOMMAND_ALBUM_RECOMMENDATION_COMMENT=album_recommendation
+      - RECOMMAND_LLM_TARGET_COMMENT=llm_recommendation
+
+      # Top Playlist Comment Tags for different ranges
+      - RECOMMAND_TOP_TARGET_COMMENT_ALLTIME=recommand_top_playlist_all_time
+      - RECOMMAND_TOP_TARGET_COMMENT_MONTH=recommand_top_playlist_month
+      - RECOMMAND_TOP_TARGET_COMMENT_WEEK=recommand_top_playlist_week
+
+      # Additional Configuration
+      - RECOMMAND_ALBUM_RECOMMENDATION_ENABLED=false
+      - RECOMMAND_HIDE_DOWNLOAD_FROM_LINK=false
+      - RECOMMAND_HIDE_FRESH_RELEASES=true
+      - RECOMMAND_FRESH_RELEASES_CACHE_DURATION=300
+      - RECOMMAND_DEEZER_MAX_CONCURRENT_REQUESTS=3

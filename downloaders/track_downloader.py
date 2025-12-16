@@ -18,26 +18,43 @@ class TrackDownloader:
         self.temp_download_folder = config.TEMP_DOWNLOAD_FOLDER
         self.deezer_arl = config.DEEZER_ARL
 
-    async def download_track(self, song_info, lb_recommendation=None):
-        """Downloads a track using the configured method."""
-        # Reload config to get the latest DOWNLOAD_METHOD
+    async def download_track(self, song_info, lb_recommendation=None, position=None):
+        """
+        Download a track using the configured method (deemix or streamrip), or tag if already present in Navidrome.
+        Adds the appropriate comment and tags to the file.
+        If 'position' is provided, it is appended to the comment for playlist context.
+        """
         importlib.reload(config)
         current_download_method = config.DOWNLOAD_METHOD
         temp_download_folder = config.TEMP_DOWNLOAD_FOLDER
         deezer_arl = config.DEEZER_ARL
 
-        # Determine the correct comment based on source and lb_recommendation flag
-        # Special handling: if source is 'Manual' but lb_recommendation is set, prioritize it
+        # Determine the correct comment for tagging based on source and flags
+        source = song_info.get('source', '').lower()
         if lb_recommendation is not None and lb_recommendation:
             comment = config.TARGET_COMMENT
-        elif song_info.get('source', '').lower() == 'llm':
+        elif source == 'llm':
             comment = config.LLM_TARGET_COMMENT
-        elif song_info.get('source', '').lower() == 'listenbrainz':
-            comment = config.TARGET_COMMENT
-        else:
+        elif source == 'lastfm':
             comment = config.LASTFM_TARGET_COMMENT
+        elif source == 'listenbrainz':
+            comment = config.TARGET_COMMENT
+        elif source == 'album_recommendation':
+            comment = config.ALBUM_RECOMMENDATION_COMMENT
+        elif source == 'lb_top_week':
+            comment = config.TOP_TARGET_COMMENT_WEEK
+        elif source == 'lb_top_month':
+            comment = config.TOP_TARGET_COMMENT_MONTH
+        elif source == 'lb_top_alltime':
+            comment = config.TOP_TARGET_COMMENT_ALLTIME
+        else:
+            comment = ''
 
-        # Debug logging
+        # If a position is provided, append it to the comment (for playlist context)
+        if position is not None:
+            comment = f"{comment} {position}"
+
+        # Debug logging for troubleshooting
         debug_info = {
             'song_info': song_info,
             'lb_recommendation': lb_recommendation,
@@ -47,21 +64,82 @@ class TrackDownloader:
         with open('/app/debug.log', 'a') as f:
             f.write(f"TRACK_DOWNLOADER_START: {debug_info}\n")
 
+
+        # Retrieve Deezer info to enrich song_info with album, release_date, etc.
         deezer_link = await self._get_deezer_link_and_details(song_info)
         if not deezer_link:
             print(f"  ❌ No Deezer link found for {song_info['artist']} - {song_info['title']}")
             return None
 
+        # Try to find the file in Navidrome first (avoid duplicate downloads)
         downloaded_file_path = None
-        if current_download_method == "deemix":
-            downloaded_file_path = self._download_track_deemix(deezer_link, song_info, temp_download_folder)
-        elif current_download_method == "streamrip":
-            downloaded_file_path = await self._download_track_streamrip(deezer_link, song_info, temp_download_folder)
-        else:
-            print(f"  ❌ Unknown DOWNLOAD_METHOD: {current_download_method}")
-            return None
+        song_already_in_navidrome = False
+        try:
+            from apis.navidrome_api import NavidromeAPI
+            navidrome_api = NavidromeAPI(
+                root_nd=getattr(config, 'ROOT_ND', ''),
+                user_nd=getattr(config, 'USER_ND', ''),
+                password_nd=getattr(config, 'PASSWORD_ND', ''),
+                music_library_path=getattr(config, 'MUSIC_LIBRARY_PATH', ''),
+                target_comment=getattr(config, 'TARGET_COMMENT', ''),
+                lastfm_target_comment=getattr(config, 'LASTFM_TARGET_COMMENT', ''),
+                album_recommendation_comment=getattr(config, 'ALBUM_RECOMMENDATION_COMMENT', ''),
+                llm_target_comment=getattr(config, 'LLM_TARGET_COMMENT', ''),
+                listenbrainz_enabled=getattr(config, 'LISTENBRAINZ_ENABLED', False),
+                lastfm_enabled=getattr(config, 'LASTFM_ENABLED', False),
+                llm_enabled=getattr(config, 'LLM_ENABLED', False),
+                top_target_comment_alltime=getattr(config, 'TOP_TARGET_COMMENT_ALLTIME', ''),
+                top_target_comment_month=getattr(config, 'TOP_TARGET_COMMENT_MONTH', ''),
+                top_target_comment_week=getattr(config, 'TOP_TARGET_COMMENT_WEEK', ''),
+                listenbrainz_top_alltime_enabled=getattr(config, 'LISTENBRAINZ_TOP_ALLTIME_ENABLED', False),
+                listenbrainz_top_month_enabled=getattr(config, 'LISTENBRAINZ_TOP_MONTH_ENABLED', False),
+                listenbrainz_top_week_enabled=getattr(config, 'LISTENBRAINZ_TOP_WEEK_ENABLED', False),
+                album_recommendation_enabled=getattr(config, 'ALBUM_RECOMMENDATION_ENABLED', False),
+                hide_download_from_link=getattr(config, 'HIDE_DOWNLOAD_FROM_LINK', False),
+                hide_fresh_releases=getattr(config, 'HIDE_FRESH_RELEASES', False)
+            )
+            from utils import sanitize_filename
+            navidrome_relative_path = os.path.join(
+                sanitize_filename(song_info['artist']),
+                sanitize_filename(song_info['album']),
+                f"{sanitize_filename(song_info['title'])}.mp3"
+            )
+            print(f"[TrackDownloader] Calling _find_actual_song_path with: {navidrome_relative_path}")
+            navidrome_path = navidrome_api._find_actual_song_path(
+                navidrome_relative_path,
+                song_details=song_info
+            )
+            print(f"[TrackDownloader] _find_actual_song_path returned: {navidrome_path}")
+            if navidrome_path and os.path.exists(navidrome_path):
+                downloaded_file_path = navidrome_path
+                song_already_in_navidrome = True
+                print(f"  ✅ Found existing file in Navidrome: {navidrome_path}")
+                # Add comment even if file already exists
+                try:
+                    self.tagger.add_comment_to_file(
+                        downloaded_file_path,
+                        comment
+                    )
+                except Exception as e:
+                    print(f"  ⚠️  Failed to add comment to existing file: {e}")
+            else:
+                print(f"  ℹ️  File not found in Navidrome for {song_info['artist']} - {song_info['title']}")
+        except Exception as e:
+            with open('/app/debug.log', 'a') as f:
+                f.write(f"TRACK_DOWNLOADER_NAVIDROME_LOOKUP_ERROR: {e}\n")
 
-        if downloaded_file_path:
+        # If not found in Navidrome, proceed to download
+        if downloaded_file_path is None:
+            if current_download_method == "deemix":
+                downloaded_file_path = self._download_track_deemix(deezer_link, song_info, temp_download_folder)
+            elif current_download_method == "streamrip":
+                downloaded_file_path = await self._download_track_streamrip(deezer_link, song_info, temp_download_folder)
+            else:
+                print(f"  ❌ Unknown DOWNLOAD_METHOD: {current_download_method}")
+                return None
+
+        if downloaded_file_path and not song_already_in_navidrome and comment in [config.TARGET_COMMENT, config.LLM_TARGET_COMMENT, config.LASTFM_TARGET_COMMENT]:
+            # Tag the downloaded file with metadata and comment
             self.tagger.tag_track(
                 downloaded_file_path,
                 song_info['artist'],

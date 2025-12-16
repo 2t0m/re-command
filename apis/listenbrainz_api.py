@@ -381,3 +381,53 @@ class ListenBrainzAPI:
         except Exception as e:
             print(f"Error submitting feedback: {e}")
             raise
+
+    async def get_top_playlist(self, count=100, range='all_time'):
+        """
+        Fetch the user's top playlist from ListenBrainz and return a list of normalized track dicts.
+        Each dict contains artist, title, album, release_date, recording_mbid, and source info.
+        """
+        raw_tracks = await self._get_top_playlist(self.user_lb, count=count, range=range)
+        if range == 'all_time':
+            source = 'lb_top_alltime'
+        elif range == 'month':
+            source = 'lb_top_month'
+        elif range == 'week':
+            source = 'lb_top_week'
+        normalized_tracks = []
+        for idx, track in enumerate(raw_tracks, start=1):
+            position = f"{idx:03d}"
+            artist = track.get('artist') or track.get('artist_name') or track.get('creator') or ''
+            title = track.get('title') or track.get('track_name') or ''
+            album = track.get('album') or track.get('release_name') or ''
+            release_date = track.get('release_date') or ''
+            recording_mbid = track.get('recording_mbid') or track.get('id') or track.get('mbid') or ''
+            caa_release_mbid = track.get('caa_release_mbid') or None
+            caa_id = track.get('caa_id') or None
+            normalized_tracks.append({
+                'artist': artist,
+                'title': title,
+                'album': album,
+                'release_date': release_date,
+                'recording_mbid': recording_mbid,
+                'source': source,
+                'position': position,
+                'caa_release_mbid': caa_release_mbid,
+                'caa_id': caa_id
+            })
+        return normalized_tracks
+
+    async def _get_top_playlist(self, username, count=100, range='all_time'):
+        """
+        Internal helper to fetch raw top playlist data from ListenBrainz API.
+        """
+        url = f"https://api.listenbrainz.org/1/stats/user/{username}/recordings"
+        params = {"range": range, "count": count}
+        response = await self._make_request_with_retries(
+            method="GET",
+            url=url,
+            headers=self.auth_header_lb,
+            params=params
+        )
+        data = response.json()
+        return data.get('payload', {}).get('recordings', [])

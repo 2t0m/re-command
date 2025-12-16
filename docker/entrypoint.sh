@@ -51,6 +51,12 @@ echo "" >> config.py
 echo "ALBUM_RECOMMENDATION_ENABLED = os.getenv(\"ALBUM_RECOMMENDATION_ENABLED\", \"${RECOMMAND_ALBUM_RECOMMENDATION_ENABLED:-false}\").lower() == \"true\"" >> config.py
 echo "" >> config.py
 
+# Top Playlist Settings
+echo "LISTENBRAINZ_TOP_ALLTIME_ENABLED = os.getenv(\"LISTENBRAINZ_TOP_ALLTIME_ENABLED\", \"${RECOMMAND_LISTENBRAINZ_TOP_ALLTIME_ENABLED:-false}\").lower() == \"true\"" >> config.py
+echo "LISTENBRAINZ_TOP_MONTH_ENABLED = os.getenv(\"LISTENBRAINZ_TOP_MONTH_ENABLED\", \"${RECOMMAND_LISTENBRAINZ_TOP_MONTH_ENABLED:-false}\").lower() == \"true\"" >> config.py
+echo "LISTENBRAINZ_TOP_WEEK_ENABLED = os.getenv(\"LISTENBRAINZ_TOP_WEEK_ENABLED\", \"${RECOMMAND_LISTENBRAINZ_TOP_WEEK_ENABLED:-false}\").lower() == \"true\"" >> config.py
+echo "" >> config.py
+
 # UI Visibility Settings
 echo "HIDE_DOWNLOAD_FROM_LINK = os.getenv(\"HIDE_DOWNLOAD_FROM_LINK\", \"${RECOMMAND_HIDE_DOWNLOAD_FROM_LINK:-false}\").lower() == \"true\"" >> config.py
 echo "HIDE_FRESH_RELEASES = os.getenv(\"HIDE_FRESH_RELEASES\", \"${RECOMMAND_HIDE_FRESH_RELEASES:-false}\").lower() == \"true\"" >> config.py
@@ -60,6 +66,9 @@ echo "" >> config.py
 echo "TARGET_COMMENT = os.getenv(\"TARGET_COMMENT\", \"${RECOMMAND_TARGET_COMMENT:-lb_recommendation}\")" >> config.py
 echo "LASTFM_TARGET_COMMENT = os.getenv(\"LASTFM_TARGET_COMMENT\", \"${RECOMMAND_LASTFM_TARGET_COMMENT:-lastfm_recommendation}\")" >> config.py
 echo "ALBUM_RECOMMENDATION_COMMENT = os.getenv(\"ALBUM_RECOMMENDATION_COMMENT\", \"${RECOMMAND_ALBUM_RECOMMENDATION_COMMENT:-album_recommendation}\")" >> config.py
+echo "TOP_TARGET_COMMENT_ALLTIME = os.getenv(\"TOP_TARGET_COMMENT_ALLTIME\", \"${RECOMMAND_TOP_TARGET_COMMENT_ALLTIME:-recommand_top_playlist_alltime}\")" >> config.py
+echo "TOP_TARGET_COMMENT_MONTH = os.getenv(\"TOP_TARGET_COMMENT_MONTH\", \"${RECOMMAND_TOP_TARGET_COMMENT_MONTH:-recommand_top_playlist_month}\")" >> config.py
+echo "TOP_TARGET_COMMENT_WEEK = os.getenv(\"TOP_TARGET_COMMENT_WEEK\", \"${RECOMMAND_TOP_TARGET_COMMENT_WEEK:-recommand_top_playlist_week}\")" >> config.py
 echo "" >> config.py
 
 # History Tracking

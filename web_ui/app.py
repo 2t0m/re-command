@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import subprocess
@@ -303,6 +302,9 @@ def get_config():
         "LISTENBRAINZ_ENABLED": LISTENBRAINZ_ENABLED,
         "TOKEN_LB": "••••••••" if TOKEN_LB else "",
         "USER_LB": USER_LB,
+        "LISTENBRAINZ_TOP_ALLTIME_ENABLED": LISTENBRAINZ_TOP_ALLTIME_ENABLED,
+        "LISTENBRAINZ_TOP_MONTH_ENABLED": LISTENBRAINZ_TOP_MONTH_ENABLED,
+        "LISTENBRAINZ_TOP_WEEK_ENABLED": LISTENBRAINZ_TOP_WEEK_ENABLED,
         "LASTFM_ENABLED": LASTFM_ENABLED,
         "LASTFM_API_KEY": "••••••••" if LASTFM_API_KEY else "",
         "LASTFM_API_SECRET": "••••••••" if LASTFM_API_SECRET else "",
@@ -473,14 +475,8 @@ def get_listenbrainz_playlist():
 
 @app.route('/api/trigger_listenbrainz_download', methods=['POST'])
 def trigger_listenbrainz_download():
-    print("Attempting to trigger ListenBrainz download via background script...")
+    print("Attempting to trigger ListenBrainz download via re-command.py subprocess...")
     try:
-        # Check if there are recommendations first
-        listenbrainz_api = ListenBrainzAPI(ROOT_LB, TOKEN_LB, USER_LB, LISTENBRAINZ_ENABLED)
-        recs = asyncio.run(listenbrainz_api.get_listenbrainz_recommendations())
-        if not recs:
-            return jsonify({"status": "error", "message": "No ListenBrainz recommendations found. Please check your credentials and try again."}), 400
-        
         download_id = str(uuid.uuid4())
         downloads_queue[download_id] = {
             'id': download_id,
@@ -490,15 +486,13 @@ def trigger_listenbrainz_download():
             'start_time': datetime.now().isoformat(),
             'message': 'Download initiated.',
             'current_track_count': 0,
-            'total_track_count': None  # Will be updated when recommendations are fetched
+            'total_track_count': None
         }
-        
-        # Execute re-command.py in a separate process for non-blocking download, bypassing playlist check
         subprocess.Popen([
-            sys.executable, '/app/re-command.py', 
-            '--source', 'listenbrainz', 
+            sys.executable, '/app/re-command.py',
+            '--source', 'listenbrainz',
             '--bypass-playlist-check',
-            '--download-id', download_id # Pass the download ID
+            '--download-id', download_id
         ])
         return jsonify({"status": "info", "message": "ListenBrainz download initiated in the background."})
     except Exception as e:
@@ -528,14 +522,8 @@ def get_lastfm_playlist():
 
 @app.route('/api/trigger_lastfm_download', methods=['POST'])
 def trigger_lastfm_download():
-    print("Attempting to trigger Last.fm download via background script...")
+    print("Attempting to trigger Last.fm download via re-command.py subprocess...")
     try:
-        # Check if there are recommendations first
-        lastfm_api = LastFmAPI(LASTFM_API_KEY, LASTFM_API_SECRET, LASTFM_USERNAME, LASTFM_SESSION_KEY, LASTFM_ENABLED)
-        recs = asyncio.run(lastfm_api.get_lastfm_recommendations())
-        if not recs:
-            return jsonify({"status": "error", "message": "No Last.fm recommendations found. Please check your credentials and try again."}), 400
-        
         download_id = str(uuid.uuid4())
         downloads_queue[download_id] = {
             'id': download_id,
@@ -545,14 +533,12 @@ def trigger_lastfm_download():
             'start_time': datetime.now().isoformat(),
             'message': 'Download initiated.',
             'current_track_count': 0,
-            'total_track_count': None  # Will be updated when recommendations are fetched
+            'total_track_count': None
         }
-        
-        # Execute re-command.py in a separate process for non-blocking download
         subprocess.Popen([
-            sys.executable, '/app/re-command.py', 
+            sys.executable, '/app/re-command.py',
             '--source', 'lastfm',
-            '--download-id', download_id # Pass the download ID
+            '--download-id', download_id
         ])
         return jsonify({"status": "info", "message": "Last.fm download initiated in the background."})
     except Exception as e:
@@ -795,132 +781,53 @@ async def get_llm_playlist():
 
 @app.route('/api/trigger_llm_download', methods=['POST'])
 def trigger_llm_download():
-    # This endpoint will fetch recommendations and then trigger downloads.
-    # For simplicity, we'll re-fetch. A better implementation might cache the result from get_llm_playlist.
+    print("Attempting to trigger LLM download via re-command.py subprocess...")
     if not LLM_ENABLED or not LLM_API_KEY:
         return jsonify({"status": "error", "message": "LLM suggestions are not enabled or configured."}), 400
-
-    listenbrainz_api = ListenBrainzAPI(ROOT_LB, TOKEN_LB, USER_LB, LISTENBRAINZ_ENABLED)
-    scrobbles = asyncio.run(listenbrainz_api.get_weekly_scrobbles())
-    if not scrobbles:
-        return jsonify({"status": "info", "message": "No scrobbles to generate recommendations from."})
-
-    llm_api = LlmAPI(
-        provider=LLM_PROVIDER,
-        gemini_api_key=LLM_API_KEY if LLM_PROVIDER == 'gemini' else None,
-        openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
-        model_name=globals().get('LLM_MODEL_NAME')
-    )
-    recommendations = llm_api.get_recommendations(scrobbles)
-
-    if not recommendations:
-        return jsonify({"status": "error", "message": "LLM failed to generate recommendations for download."})
-
-    download_id = str(uuid.uuid4())
-    downloads_queue[download_id] = {
-        'id': download_id,
-        'artist': 'LLM Playlist',
-        'title': f'{len(recommendations)} Tracks',
-        'status': 'in_progress',
-        'start_time': datetime.now().isoformat(),
-        'message': 'Download initiated.',
-        'current_track_count': 0,
-        'total_track_count': len(recommendations)
-    }
-
-    # Execute downloads in a background thread
-    threading.Thread(target=lambda: asyncio.run(download_llm_recommendations_background(recommendations, download_id))).start()
-
-    return jsonify({"status": "info", "message": f"Started download of {len(recommendations)} tracks from LLM recommendations in the background."})
-
-@app.route('/api/trigger_fresh_release_download', methods=['POST'])
-def trigger_fresh_release_download():
-    print("Attempting to trigger fresh release album download...")
-    artist = None
     try:
-        data = request.get_json()
-        artist = data.get('artist')
-        album = data.get('album')
-        release_date = data.get('release_date')
-        # Global setting for album recommendations
-        is_album_recommendation = ALBUM_RECOMMENDATION_ENABLED
-
-        if not artist or not album:
-            return jsonify({"status": "error", "message": "Artist and album are required"}), 400
-
-        from downloaders.album_downloader import AlbumDownloader
-        from utils import Tagger
-
-        tagger = Tagger(ALBUM_RECOMMENDATION_COMMENT)
-        # Initialize AlbumDownloader with the album recommendation comment
-        album_downloader = AlbumDownloader(tagger, ALBUM_RECOMMENDATION_COMMENT)
-
         download_id = str(uuid.uuid4())
         downloads_queue[download_id] = {
             'id': download_id,
-            'artist': artist,
-            'title': album, # Using album as title for fresh releases
+            'artist': 'LLM Playlist',
+            'title': 'Multiple Tracks',
+            'status': 'in_progress',
+            'start_time': datetime.now().isoformat(),
+            'message': 'Download initiated.',
+            'current_track_count': 0,
+            'total_track_count': None
+        }
+        subprocess.Popen([
+            sys.executable, '/app/re-command.py',
+            '--source', 'llm',
+            '--download-id', download_id
+        ])
+        return jsonify({"status": "info", "message": "LLM download initiated in the background."})
+    except Exception as e:
+        print(f"Error triggering LLM download: {e}")
+        return jsonify({"status": "error", "message": f"Error triggering LLM download: {e}"}), 500
+
+@app.route('/api/trigger_fresh_release_download', methods=['POST'])
+def trigger_fresh_release_download():
+    print("Attempting to trigger fresh releases download via re-command.py subprocess...")
+    try:
+        download_id = str(uuid.uuid4())
+        downloads_queue[download_id] = {
+            'id': download_id,
+            'artist': 'Fresh Releases',
+            'title': 'Multiple Albums',
             'status': 'in_progress',
             'start_time': datetime.now().isoformat(),
             'message': 'Download initiated.'
         }
-
-        album_info = {
-            'artist': artist,
-            'album': album,
-            'release_date': release_date,
-            'album_art': None,
-            'download_id': download_id # Pass download_id to the downloader
-        }
-
-        import asyncio
-        print(f"Fresh Release Download Triggered for: Artist={artist}, Album={album}, Release Date={release_date}, Download ID={download_id}")
-        print(f"Album Info sent to downloader: {album_info}")
-
-        result = asyncio.run(album_downloader.download_album(album_info, is_album_recommendation=is_album_recommendation))
-        # Update the global queue with the final status after download completes
-        if result["status"] == "success":
-            update_download_status(download_id, 'completed', f"Downloaded {len(result.get('files', []))} tracks.")
-        else:
-            update_download_status(download_id, 'failed', result.get('message', 'Download failed.'))
-
-        response_message = result["message"] if "message" in result else "Operation completed."
-        debug_output = {
-            "album_info_sent": album_info,
-            "download_result": result,
-            "error_traceback": None
-        }
-
-        if result["status"] == "success":
-            # Organize the downloaded files -> music library
-            navidrome_api_global.organize_music_files(TEMP_DOWNLOAD_FOLDER, MUSIC_LIBRARY_PATH)
-            return jsonify({
-                "status": "success",
-                "message": f"Successfully downloaded and organized album {artist} - {album} with {len(result.get('files', []))} tracks.",
-                "debug_info": debug_output
-            })
-        else:
-            return jsonify({
-                "status": "error",
-                "message": response_message,
-                "debug_info": debug_output
-            })
-
+        subprocess.Popen([
+            sys.executable, '/app/re-command.py',
+            '--source', 'fresh_releases',
+            '--download-id', download_id
+        ])
+        return jsonify({"status": "info", "message": "Fresh releases download initiated in the background."})
     except Exception as e:
-        error_trace = traceback.format_exc()
-        print(f"Error triggering fresh release download: {e}")
-        print(error_trace) # Debugging traceback
-
-        debug_output = {
-            "album_info_sent": {'artist': artist, 'album': album, 'release_date': release_date, 'album_art': None},
-            "download_result": {"status": "error", "message": str(e)},
-            "error_traceback": error_trace
-        }
-        return jsonify({
-            "status": "error",
-            "message": f"Error triggering download: {e}",
-            "debug_info": debug_output
-        }), 500
+        print(f"Error triggering fresh releases download: {e}")
+        return jsonify({"status": "error", "message": f"Error triggering fresh releases download: {e}"}), 500
 
 @app.route('/api/get_track_preview', methods=['GET'])
 async def get_track_preview():
@@ -1102,6 +1009,38 @@ async def download_llm_recommendations_background(recommendations, download_id):
         f"Download complete. Processed {downloaded_count}/{total_tracks} tracks.",
         current_track_count=downloaded_count
     )
+
+@app.route('/api/trigger_listenbrainz_top_playlist_download', methods=['POST'])
+def trigger_listenbrainz_top_playlist_download():
+    print("Attempting to trigger ListenBrainz Top Playlist download via re-command.py subprocess...")
+    try:
+        # Accept 'range' from JSON body or query string, default to 'week'
+        range_value = request.args.get('range') or (request.get_json(silent=True) or {}).get('range') or 'week'
+        valid_ranges = {'week': 'lb_top_week', 'month': 'lb_top_month', 'alltime': 'lb_top_alltime'}
+        if range_value not in valid_ranges:
+            return jsonify({"status": "error", "message": f"Invalid range: {range_value}. Must be one of {list(valid_ranges.keys())}"}), 400
+        source_arg = valid_ranges[range_value]
+        download_id = str(uuid.uuid4())
+        downloads_queue[download_id] = {
+            'id': download_id,
+            'artist': f'ListenBrainz Top Playlist ({range_value})',
+            'title': 'Multiple Tracks',
+            'status': 'in_progress',
+            'start_time': datetime.now().isoformat(),
+            'message': 'Download initiated.',
+            'current_track_count': 0,
+            'total_track_count': None
+        }
+        # Launch re-command.py with the correct --source and --download-id
+        subprocess.Popen([
+            sys.executable, '/app/re-command.py',
+            '--source', source_arg,
+            '--download-id', download_id
+        ])
+        return jsonify({"status": "success", "message": f"Top Playlist ({range_value}) download started in the background."})
+    except Exception as e:
+        print(f"Error in trigger_listenbrainz_top_playlist_download: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     download_poller_thread = threading.Thread(target=poll_download_statuses, daemon=True)

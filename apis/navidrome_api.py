@@ -4,6 +4,11 @@ import os
 import sys
 import shutil
 import asyncio
+from streamrip.client import DeezerClient
+from streamrip.media import Track, PendingSingle
+from streamrip.config import Config
+from streamrip.db import Database, Downloads, Failed
+from mutagen.id3 import ID3, COMM, error
 from tqdm import tqdm
 from config import TEMP_DOWNLOAD_FOLDER
 from mutagen import File, MutagenError
@@ -15,7 +20,29 @@ from mutagen.m4a import M4A
 from utils import sanitize_filename
 
 class NavidromeAPI:
-    def __init__(self, root_nd, user_nd, password_nd, music_library_path, target_comment, lastfm_target_comment, album_recommendation_comment=None, llm_target_comment=None, listenbrainz_enabled=False, lastfm_enabled=False, llm_enabled=False):
+    def __init__(
+        self,
+        root_nd,
+        user_nd,
+        password_nd,
+        music_library_path,
+        target_comment,
+        lastfm_target_comment,
+        album_recommendation_comment=None,
+        llm_target_comment=None,
+        listenbrainz_enabled=False,
+        lastfm_enabled=False,
+        llm_enabled=False,
+        top_target_comment_alltime=None,
+        top_target_comment_month=None,
+        top_target_comment_week=None,
+        listenbrainz_top_alltime_enabled=False,
+        listenbrainz_top_month_enabled=False,
+        listenbrainz_top_week_enabled=False,
+        album_recommendation_enabled=False,
+        hide_download_from_link=False,
+        hide_fresh_releases=False
+        ):
         self.root_nd = root_nd
         self.user_nd = user_nd
         self.password_nd = password_nd
@@ -24,9 +51,18 @@ class NavidromeAPI:
         self.lastfm_target_comment = lastfm_target_comment
         self.album_recommendation_comment = album_recommendation_comment
         self.llm_target_comment = llm_target_comment
+        self.top_target_comment_alltime = top_target_comment_alltime
+        self.top_target_comment_month = top_target_comment_month
+        self.top_target_comment_week = top_target_comment_week
         self.listenbrainz_enabled = listenbrainz_enabled
         self.lastfm_enabled = lastfm_enabled
         self.llm_enabled = llm_enabled
+        self.listenbrainz_top_alltime_enabled = listenbrainz_top_alltime_enabled
+        self.listenbrainz_top_month_enabled = listenbrainz_top_month_enabled
+        self.listenbrainz_top_week_enabled = listenbrainz_top_week_enabled
+        self.album_recommendation_enabled = album_recommendation_enabled
+        self.hide_download_from_link = hide_download_from_link
+        self.hide_fresh_releases = hide_fresh_releases
 
     def _get_navidrome_auth_params(self):
         """Generates authentication parameters for Navidrome."""
@@ -109,14 +145,18 @@ class NavidromeAPI:
         except Exception as e:
             print(f"An unexpected error occurred while updating comment for {file_path}: {e}")
 
-    def _delete_song(self, song_path):
-        """Deletes a song file and provides verbose output. Returns True if deleted, False otherwise."""
+    def _delete_song(self, song_path, track_id=None):
+        """
+        Delete a song file from disk. If track_id is provided, also remove its entry from the streamrip downloads table.
+        Returns True if the file was deleted, False otherwise.
+        """
+        deleted_file = False
         if os.path.exists(song_path):
             if os.path.isfile(song_path):
                 try:
                     os.remove(song_path)
                     print(f"Successfully deleted file: {song_path}")
-                    return True
+                    deleted_file = True
                 except OSError as e:
                     print(f"Error deleting file {song_path}: {e}")
                     return False
@@ -128,7 +168,17 @@ class NavidromeAPI:
                 return False
         else:
             print(f"Attempted to delete, but path does not exist: {song_path}")
-            return False
+
+        # Remove DB entry if track_id is provided
+        if track_id is not None:
+            try:
+                from streamrip.db import Database, Downloads, Failed
+                rip_db = Database(downloads=Downloads("/app/temp_downloads/downloads.db"), failed=Failed("/app/temp_downloads/failed_downloads.db"))
+                deleted = rip_db.downloads.delete_by_id(track_id)
+                print(f"Deleted DB entry by id {track_id}: {deleted}")
+            except Exception as e:
+                print(f"Error deleting DB entry for id {track_id}: {e}")
+        return deleted_file
 
     def _find_actual_song_path(self, navidrome_relative_path, song_details=None):
         """
@@ -359,15 +409,26 @@ class NavidromeAPI:
             has_recommendation_comment = (song_comment == self.target_comment or
                                         song_comment == self.lastfm_target_comment or
                                         song_comment == self.album_recommendation_comment or
-                                        song_comment == self.llm_target_comment)
+                                        song_comment == self.llm_target_comment or
+                                        song_comment.startswith(self.top_target_comment_alltime) or
+                                        song_comment.startswith(self.top_target_comment_month) or
+                                        song_comment.startswith(self.top_target_comment_week))
             
 
             
             if has_recommendation_comment and song_path:
                 user_rating = song_details.get('userRating', 0)
                 
+                # Top Playlists
+                if song_comment.startswith(self.top_target_comment_alltime) and self.listenbrainz_top_alltime_enabled:
+                    self._update_song_comment(song_path, '')
+                elif song_comment.startswith(self.top_target_comment_month) and self.listenbrainz_top_month_enabled:
+                    self._update_song_comment(song_path, '')
+                elif song_comment.startswith(self.top_target_comment_week) and self.listenbrainz_top_week_enabled:
+                    self._update_song_comment(song_path, '')
+
                 # ListenBrainz recommendations
-                if song_comment == self.target_comment and self.listenbrainz_enabled:
+                elif song_comment == self.target_comment and self.listenbrainz_enabled:
                     if user_rating == 5:
                         self._update_song_comment(song_path, "")
                         # Submit positive feedback (love) for 5-star tracks
@@ -382,12 +443,12 @@ class NavidromeAPI:
                             for root, _, files in os.walk(song_path):
                                 for file in files:
                                     file_to_delete = os.path.join(root, file)
-                                    if not self._delete_song(file_to_delete):
+                                    if not self._delete_song(file_to_delete, track_id=song['id']):
                                         all_files_deleted_in_dir = False
                             if all_files_deleted_in_dir:
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
                         else:
-                            if self._delete_song(song_path):
+                            if self._delete_song(song_path, track_id=song['id']):
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
                         # Submit negative feedback (hate) for 1-star tracks
                         if 'musicBrainzId' in song_details and song_details['musicBrainzId'] and listenbrainz_api:
@@ -399,12 +460,12 @@ class NavidromeAPI:
                             for root, _, files in os.walk(song_path):
                                 for file in files:
                                     file_to_delete = os.path.join(root, file)
-                                    if not self._delete_song(file_to_delete):
+                                    if not self._delete_song(file_to_delete, track_id=song['id']):
                                         all_files_deleted_in_dir = False
                             if all_files_deleted_in_dir:
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
                         else:
-                            if self._delete_song(song_path):
+                            if self._delete_song(song_path, track_id=song['id']):
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
 
                 # Last.fm recommendations
@@ -426,12 +487,12 @@ class NavidromeAPI:
                             for root, _, files in os.walk(song_path):
                                 for file in files:
                                     file_to_delete = os.path.join(root, file)
-                                    if not self._delete_song(file_to_delete):
+                                    if not self._delete_song(file_to_delete, track_id=song['id']):
                                         all_files_deleted_in_dir = False
                             if all_files_deleted_in_dir:
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
                         else:
-                            if self._delete_song(song_path):
+                            if self._delete_song(song_path, track_id=song['id']):
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
 
                 # Album recommendations
@@ -445,12 +506,12 @@ class NavidromeAPI:
                             for root, _, files in os.walk(song_path):
                                 for file in files:
                                     file_to_delete = os.path.join(root, file)
-                                    if not self._delete_song(file_to_delete):
+                                    if not self._delete_song(file_to_delete, track_id=song['id']):
                                         all_files_deleted_in_dir = False
                             if all_files_deleted_in_dir:
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
                         else:
-                            if self._delete_song(song_path):
+                            if self._delete_song(song_path, track_id=song['id']):
                                 deleted_songs.append(f"{song_details['artist']} - {song_details['title']}")
 
                 # LLM recommendations
@@ -478,12 +539,12 @@ class NavidromeAPI:
                         for root, _, files in os.walk(song_path):
                             for file in files:
                                 file_to_delete = os.path.join(root, file)
-                                if not self._delete_song(file_to_delete):
+                                if not self._delete_song(file_to_delete, track_id=song['id']):
                                     all_files_deleted_in_dir = False
                         if all_files_deleted_in_dir:
                             deleted_songs.append(f"{song_details['artist']} - {song_details['title']} (Commented)")
                     else:
-                        if self._delete_song(song_path):
+                        if self._delete_song(song_path, track_id=song['id']):
                             deleted_songs.append(f"{song_details['artist']} - {song_details['title']} (Commented)")
 
         if deleted_songs:

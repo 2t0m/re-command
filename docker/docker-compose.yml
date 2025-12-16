@@ -6,7 +6,7 @@ services:
     container_name: re-command-container
     image: re-command-app
     ports:
-      - "5000:5000"
+      - "5005:5000"
     volumes:
       - ${MUSIC_PATH:-../music}:/app/music
       - ${MUSIC_PATH:-../music}/.tempfolder:/app/temp_downloads
@@ -34,6 +34,11 @@ services:
       - RECOMMAND_LLM_API_KEY=${RECOMMAND_LLM_API_KEY:-}
       - RECOMMAND_LLM_MODEL_NAME=${RECOMMAND_LLM_MODEL_NAME:-}
 
+      # Top Playlist Configuration (disabled by default)
+      - RECOMMAND_LISTENBRAINZ_TOP_ALLTIME_ENABLED=${RECOMMAND_LISTENBRAINZ_TOP_ALLTIME_ENABLED:-False}
+      - RECOMMAND_LISTENBRAINZ_TOP_MONTH_ENABLED=${RECOMMAND_LISTENBRAINZ_TOP_MONTH_ENABLED:-False}
+      - RECOMMAND_LISTENBRAINZ_TOP_WEEK_ENABLED=${RECOMMAND_LISTENBRAINZ_TOP_WEEK_ENABLED:-False}
+
       # Deezer Configuration (empty, configurable via web UI)
       - RECOMMAND_DEEZER_ARL=${RECOMMAND_DEEZER_ARL:-}
 
@@ -45,6 +50,11 @@ services:
       - RECOMMAND_LASTFM_TARGET_COMMENT=${RECOMMAND_LASTFM_TARGET_COMMENT:-lastfm_recommendation}
       - RECOMMAND_ALBUM_RECOMMENDATION_COMMENT=${RECOMMAND_ALBUM_RECOMMENDATION_COMMENT:-album_recommendation}
       - RECOMMAND_LLM_TARGET_COMMENT=${RECOMMAND_LLM_TARGET_COMMENT:-llm_recommendation}
+
+      # Top Playlist Comment Tags for different ranges
+      - RECOMMAND_TOP_TARGET_COMMENT_ALLTIME=${RECOMMAND_TOP_TARGET_COMMENT_ALLTIME:-recommand_top_playlist_alltime}
+      - RECOMMAND_TOP_TARGET_COMMENT_MONTH=${RECOMMAND_TOP_TARGET_COMMENT_MONTH:-recommand_top_playlist_month}
+      - RECOMMAND_TOP_TARGET_COMMENT_WEEK=${RECOMMAND_TOP_TARGET_COMMENT_WEEK:-recommand_top_playlist_week}
 
       # Additional Configuration (default values)
       - RECOMMAND_ALBUM_RECOMMENDATION_ENABLED=${RECOMMAND_ALBUM_RECOMMENDATION_ENABLED:-false}
