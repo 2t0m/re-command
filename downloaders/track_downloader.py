@@ -22,7 +22,7 @@ class TrackDownloader:
         """
         Download a track using the configured method (deemix or streamrip), or tag if already present in Navidrome.
         Adds the appropriate comment and tags to the file.
-        If 'position' is provided, it is appended to the comment for playlist context.
+        If 'position' is provided, it is appended to the comment (for playlist context).
         """
         importlib.reload(config)
         current_download_method = config.DOWNLOAD_METHOD

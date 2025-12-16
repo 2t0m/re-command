@@ -224,7 +224,7 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
     if unique_recommendations:
         print("\033[1;33m=== DOWNLOADING TRACKS ===\033[0m")
         total = len(unique_recommendations)
-        source_name = "ListenBrainz" if "listenbrainz" in source.lower() else "Last.fm"
+        source_name = source.lower()
         title = f"Downloading {source_name} Playlist"
         update_status_file(download_id, "in_progress", f"Starting download of {total} tracks.", title, current_track_count=0, total_track_count=total)
         downloaded_songs_info = []

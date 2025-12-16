@@ -188,7 +188,7 @@ class LastFmAPI:
                 "release_date": track["release_date"],
                 "album_art": None,
                 "recording_mbid": None,
-                "source": "Last.fm"
+                "source": "lastfm"
             }
             details = album_details[i]
             if details:
