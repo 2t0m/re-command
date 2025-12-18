@@ -664,6 +664,12 @@ class NavidromeAPI:
                             new_file_path = os.path.join(album_folder, new_filename)
                             counter += 1
 
+                        # If file already exists at destination, skip moving and remove temp file
+                        if os.path.exists(new_file_path):
+                            print(f"File already exists at destination: {new_file_path}, removing temp file {file_path}")
+                            os.remove(file_path)
+                            continue
+
                         os.makedirs(album_folder, exist_ok=True)
                         shutil.move(file_path, new_file_path)
                         print(f"Moved '{filename}' to '{os.path.relpath(new_file_path, destination_base_folder)}'")
