@@ -62,6 +62,10 @@ echo "HIDE_DOWNLOAD_FROM_LINK = os.getenv(\"HIDE_DOWNLOAD_FROM_LINK\", \"${RECOM
 echo "HIDE_FRESH_RELEASES = os.getenv(\"HIDE_FRESH_RELEASES\", \"${RECOMMAND_HIDE_FRESH_RELEASES:-false}\").lower() == \"true\"" >> config.py
 echo "" >> config.py
 
+# Duplicate file handling
+echo "KEEP_DUPLICATE_FILES = os.getenv(\"KEEP_DUPLICATE_FILES\", \"${RECOMMAND_KEEP_DUPLICATE_FILES:-true}\").lower() == \"true\"" >> config.py
+echo "" >> config.py
+
 # Comment Tags for Playlist Creation
 echo "TARGET_COMMENT = os.getenv(\"TARGET_COMMENT\", \"${RECOMMAND_TARGET_COMMENT:-lb_recommendation}\")" >> config.py
 echo "LASTFM_TARGET_COMMENT = os.getenv(\"LASTFM_TARGET_COMMENT\", \"${RECOMMAND_LASTFM_TARGET_COMMENT:-lastfm_recommendation}\")" >> config.py
